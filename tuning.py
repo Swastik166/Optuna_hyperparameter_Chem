@@ -3,7 +3,7 @@
 import optuna
 import models
 import os
-from objectives import RandomForestObjective, GradientBoostingObjective, SVRObjective, GaussianProcessObjective, XGBoostObjective
+from objectives import RandomForestObjective, GradientBoostingObjective, SVRObjective, GaussianProcessObjective, XGBoostObjective, MLP
 
 def tune_model(model_name, X, y, X_val, y_val):
     
@@ -23,6 +23,8 @@ def tune_model(model_name, X, y, X_val, y_val):
         objective = GaussianProcessObjective(X, y, X_val, y_val)
     elif model_name == 'XGBoost':
         objective = XGBoostObjective(X, y, X_val, y_val)
+    elif model_name == 'MLP':
+        objective = MLP(X, y, X_val, y_val)
         
     
     study = optuna.create_study(direction='minimize')
