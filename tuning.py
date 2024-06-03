@@ -32,17 +32,26 @@ def tune_model(model_name, X, y, X_val, y_val):
     
     return study, study.best_params
 
-def opt_plots(study, filename):
+def opt_plots(study, path):
     fig1 = optuna.visualization.plot_optimization_history(study)
-    fig1.write_image(f'{filename}_opt_history.png')
+    fig1.write_image(os.path.join(path, 'plot_optimization_history.png'))
+    
     fig2 = optuna.visualization.plot_slice(study)
+    fig2.write_image(os.path.join(path, 'plot_slice.png'))
+    
     fig3 = optuna.visualization.plot_contour(study)
+    fig3.write_image(os.path.join(path, 'plot_contour.png'))
+    
     fig4 = optuna.visualization.plot_parallel_coordinate(study)
+    fig4.write_image(os.path.join(path, 'plot_parallel_coordinate.png'))
+    
     fig5 = optuna.visualization.plot_param_importances(study)
+    fig5.write_image(os.path.join(path, 'plot_param_importances.png'))
     
     
 
-def save_best_params(params, filename):
+def save_best_params(params, path):
+    filename = os.path.join(path, 'best_params.txt')
     with open(filename, 'w') as f:
         for key, value in params.items():
             f.write(f'{key}: {value}\n')
