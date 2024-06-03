@@ -24,7 +24,7 @@ def get_reg(regressor_name, best_params, X_train, y_train):
     elif regressor_name == 'GradientBoosting':
         return GradientBoostingRegressor(loss='huber',
             n_estimators=best_params['n_estimators'], 
-            max_depth=best_params['max_depth']
+            max_depth=best_params['max_depth'],
             learning_rate=best_params['learning_rate'],
             subsample=best_params['subsample'],
             min_samples_split=best_params['min_samples_split'],
