@@ -6,7 +6,8 @@ import os
 
 def train_model(model_name, best_params, X_train, y_train):
     clf = models.get_reg(model_name, best_params, X_train, y_train)
-    clf.fit(X_train, y_train)
+    if model_name != 'XGBoost':
+        clf.fit(X_train, y_train)
     return clf
 
 def save_model(model, path):

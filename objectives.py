@@ -23,7 +23,7 @@ class RandomForestObjective(object):
         self.y_val = y_val
 
     def __call__(self, trial):
-        n_estimators = trial.suggest_int('n_estimators', 10, 1000, step = 50)
+        n_estimators = trial.suggest_int('n_estimators', 10, 1010, step = 50)
         max_depth = trial.suggest_int('max_depth', 1, 100)
         min_samples_split = trial.suggest_int('min_samples_split', 2, 20)
         min_samples_leaf = trial.suggest_int('min_samples_leaf', 1, 20)
@@ -49,9 +49,9 @@ class GradientBoostingObjective(object):
     def __call__(self, trial):
         n_estimators = trial.suggest_int('n_estimators', 10, 3010, step=100)
         max_depth = trial.suggest_int('max_depth', 1, 15)
-        learning_rate = trial.suggest_categorical('learning_rate', 0.01, 0.1)
-        subsample = trial.suggest_categorical('subsample', 0.001, 0.01, 0.1, 1) #C_val
-        min_samples_split = trial.suggest_categorical('min_samples_split', 2, 5, 10)
+        learning_rate = trial.suggest_categorical('learning_rate', [0.01, 0.1])
+        subsample = trial.suggest_categorical('subsample', [0.001, 0.01, 0.1, 1]) #C_val
+        min_samples_split = trial.suggest_categorical('min_samples_split', [2, 5, 10])
         min_samples_leaf = trial.suggest_int('min_samples_leaf', 1, 10)
         alpha = trial.suggest_float('alpha', 0.1, 0.9) 
         reg = GradientBoostingRegressor(loss = 'huber', n_estimators=n_estimators, 
@@ -75,9 +75,10 @@ class SVRObjective(object):
         self.y_val = y_val
 
     def __call__(self, trial):
-        C = trial.suggest_int('C', 1e-5, 1e3, step=10)
-        epsilon = trial.suggest_float('epsilon', 1e-4, 1e1, log=True)
+        C = trial.suggest_categorical('C', [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1, 10, 100])
+        epsilon = trial.suggest_float('epsilon', 1e-6, 1e-1, log=True)
         kernel = trial.suggest_categorical('kernel', ['linear', 'rbf', 'poly'])
+        
         reg = SVR(C=C, epsilon=epsilon, kernel=kernel)
         reg.fit(self.X, self.y)
         train_preds = reg.predict(self.X)
@@ -119,7 +120,7 @@ class GaussianProcessObjective(object):
             
         est = make_pipeline(StandardScaler(), GaussianProcessRegressor(kernel=kernel, random_state=42))
         reg = TransformedTargetRegressor(regressor=est, transformer=StandardScaler())
-        #warnings.filterwarnings(action='ignore', category=ConvergenceWarning)
+        warnings.filterwarnings(action='ignore', category=ConvergenceWarning)
         
         reg.fit(self.X, self.y)
         train_preds = reg.predict(self.X)
@@ -141,25 +142,30 @@ class XGBoostObjective(object):
         param = {'verbosity': 0, 
                  'objective': 'reg:squarederror',
                  'eval_metric': 'rmse',
-                 'booster': trial.suggest_categorical('booster', ['gbtree', 'gblinear', 'dart']),
+                 'booster': trial.suggest_categorical('booster', ['gbtree', 'dart']),
                  'lambda': trial.suggest_float('lambda', 1e-3, 1.0, log=True),
-                 'alpha': trial.suggest_float('alpha', 1e-3, 1.0, log=True)}
+                 'alpha': trial.suggest_float('alpha', 1e-3, 1.0, log=True),
+                 'max_depth' : trial.suggest_int('max_depth', 1, 9),
+                 'eta': trial.suggest_float('eta', 1e-2, 1.0, log=True),
+                 'gamma': trial.suggest_float('gamma', 1e-2, 1.0, log=True),
+                 'grow_policy': trial.suggest_categorical('grow_policy', ['depthwise', 'lossguide'])
+                 }
         
-        if param['booster'] in ['gbtree', 'dart']:
-            param['max_depth'] = trial.suggest_int('max_depth', 1, 9)
-            param['eta'] = trial.suggest_float('eta', 1e-2, 1.0, log=True)
-            param['gamma'] = trial.suggest_float('gamma', 1e-2, 1.0, log=True)
-            param['grow_policy'] = trial.suggest_categorical('grow_policy', ['depthwise', 'lossguide'])
             
         if param['booster'] == 'dart':
             param['sample_type'] = trial.suggest_categorical('sample_type', ['uniform', 'weighted'])
             param['normalize_type'] = trial.suggest_categorical('normalize_type', ['tree', 'forest'])
-            param['rate_drop'] = trial.suggest_float('rate_drop', 0, 1.0, log=True)
-            param['skip_drop'] = trial.suggest_float('skip_drop', 0, 1.0, log=True)
+            param['rate_drop'] = trial.suggest_float('rate_drop', 1e-2, 1.0, log=True)
+            param['skip_drop'] = trial.suggest_float('skip_drop', 1e-2, 1.0, log=True)
             
+        pruning_callback = optuna.integration.XGBoostPruningCallback(trial, 'validation-rmse')
         dtrain = xgb.DMatrix(self.X, label=self.y)
         dval = xgb.DMatrix(self.X_val, label=self.y_val)
-        bst = xgb.train(param, dtrain, evals=[(dval, 'eval')], num_boost_round=100, early_stopping_rounds=10)
+        
+        param['tree_method'] = 'gpu_hist'
+        param['gpu_id'] = 3   
+        
+        bst = xgb.train(param, dtrain, evals=[(dval, 'validation')], callbacks=[pruning_callback], verbose_eval = False)
         train_preds = bst.predict(dtrain)
         train_rmse = np.sqrt(mean_squared_error(self.y, train_preds))
         preds = bst.predict(dval)

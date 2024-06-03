@@ -61,14 +61,12 @@ def get_reg(regressor_name, best_params, X_train, y_train):
                  'eval_metric': 'rmse',
                  'booster': best_params['booster'],
                  'lambda': best_params['lambda'],
-                 'alpha': best_params['alpha']}
-        if best_params['booster'] in ['gbtree', 'dart']:
-            param.update({
-                'max_depth': best_params['max_depth'],
-                'eta': best_params['eta'],
-                'gamma': best_params['gamma'],
-                'grow_policy': best_params['grow_policy']
-            })
+                 'alpha': best_params['alpha'],
+                 'max_depth': best_params['max_depth'],
+                 'eta': best_params['eta'],
+                 'gamma': best_params['gamma'],
+                 'grow_policy': best_params['grow_policy']}
+
         if best_params['booster'] == 'dart':
             param.update({
                 'sample_type': best_params['sample_type'],
