@@ -56,7 +56,7 @@ class GradientBoostingObjective(object):
         max_depth = trial.suggest_int('max_depth', 1, 5)
         learning_rate = trial.suggest_categorical('learning_rate', [0.01, 0.1])
         subsample = trial.suggest_categorical('subsample', [0.1, 0.2, 0.3, 0.4, 0.5, 0.7, 0.8, 0.9, 1]) #C_val
-        min_samples_split = trial.suggest_categorical('min_samples_split', [2, 5, 1])
+        min_samples_split = trial.suggest_int('min_samples_split', 2, 6)
         min_samples_leaf = trial.suggest_int('min_samples_leaf', 1, 5)
         alpha = trial.suggest_float('alpha', 0.1, 0.9) 
         reg = GradientBoostingRegressor(loss = 'huber', n_estimators=n_estimators, 
