@@ -9,6 +9,49 @@ from sklearn.neural_network import MLPRegressor
 from sklearn.compose import TransformedTargetRegressor
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
+import torch
+import torch.nn as nn
+import torch.optim as optim
+
+class PyTorchMLP(nn.Module):
+    def __init__(self, input_size, hidden_layer_sizes, activation, output_size=1):
+        super(PyTorchMLP, self).__init__()
+        self.hidden = nn.Linear(input_size, hidden_layer_sizes)
+        self.output = nn.Linear(hidden_layer_sizes, output_size)
+
+        if activation == 'relu':
+            self.activation = nn.ReLU()
+        elif activation == 'tanh':
+            self.activation = nn.Tanh()
+        elif activation == 'logistic':
+            self.activation = nn.Sigmoid()
+        else:
+            self.activation = nn.Identity()
+
+    def forward(self, x):
+        x = self.activation(self.hidden(x))
+        x = self.output(x)
+        return x
+
+def train_pytorch_mlp(X_train, y_train, hidden_layer_sizes, activation, alpha, learning_rate, device='cpu'):
+    input_size = X_train.shape[1]
+    model = PyTorchMLP(input_size, hidden_layer_sizes, activation).to(device)
+    criterion = nn.MSELoss()
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=alpha)
+
+    X_train_tensor = torch.tensor(X_train, dtype=torch.float32).to(device)
+    y_train_tensor = torch.tensor(y_train, dtype=torch.float32).view(-1, 1).to(device)
+
+    num_epochs = 1000
+    for epoch in range(num_epochs):
+        model.train()
+        optimizer.zero_grad()
+        outputs = model(X_train_tensor)
+        loss = criterion(outputs, y_train_tensor)
+        loss.backward()
+        optimizer.step()
+
+    return model
 
 
 def get_reg(regressor_name, best_params, X_train, y_train):
@@ -76,12 +119,19 @@ def get_reg(regressor_name, best_params, X_train, y_train):
             })
         dtrain = xgb.DMatrix(X_train, label=y_train)
         param['tree_method'] = 'gpu_hist'
-        param['gpu_id'] = 0
+        param['gpu_id'] = 6
         return xgb.train(param, dtrain, num_boost_round=100)
     
     elif regressor_name == 'MLP':
-        return MLPRegressor(
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        #choose gpu number
+        if device == 'cuda':
+            torch.cuda.set_device(6)
+        return train_pytorch_mlp(
+            X_train, y_train, 
             hidden_layer_sizes=best_params['hidden_layer_sizes'], 
             activation=best_params['activation'], 
-            alpha=best_params['alpha'],
+            alpha=best_params['alpha'], 
+            learning_rate=best_params['learning_rate'], 
+            device=device
         )

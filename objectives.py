@@ -14,6 +14,10 @@ from sklearn.exceptions import ConvergenceWarning
 from sklearn.metrics import mean_squared_error
 import optuna
 import numpy as np
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from sklearn.metrics import mean_squared_error
 
 class RandomForestObjective(object):
     def __init__(self, X, y, X_val, y_val):
@@ -36,7 +40,8 @@ class RandomForestObjective(object):
         train_rmse = np.sqrt(mean_squared_error(self.y, train_preds))
         val_preds = reg.predict(self.X_val)
         val_rmse = np.sqrt(mean_squared_error(self.y_val, val_preds))
-        score = np.abs(train_rmse - val_rmse)
+        sc = np.abs(train_rmse - val_rmse)
+        score = sc + val_rmse
         return score
 
 class GradientBoostingObjective(object):
@@ -64,7 +69,9 @@ class GradientBoostingObjective(object):
         train_rmse = np.sqrt(mean_squared_error(self.y, train_preds))
         val_preds = reg.predict(self.X_val)
         val_rmse = np.sqrt(mean_squared_error(self.y_val, val_preds))
-        score = np.abs(train_rmse - val_rmse)
+        sc = np.abs(train_rmse - val_rmse)
+        
+        score = sc + val_rmse
         return score
 
 class SVRObjective(object):
@@ -85,7 +92,8 @@ class SVRObjective(object):
         train_rmse = np.sqrt(mean_squared_error(self.y, train_preds))
         val_preds = reg.predict(self.X_val)
         val_rmse = np.sqrt(mean_squared_error(self.y_val, val_preds))
-        score = np.abs(train_rmse - val_rmse)
+        sc = np.abs(train_rmse - val_rmse)
+        score = sc + val_rmse
         return score
 
 class GaussianProcessObjective(object):
@@ -127,7 +135,8 @@ class GaussianProcessObjective(object):
         train_rmse = np.sqrt(mean_squared_error(self.y, train_preds))
         val_preds = reg.predict(self.X_val)
         val_rmse = np.sqrt(mean_squared_error(self.y_val, val_preds))
-        score = np.abs(train_rmse - val_rmse)
+        sc = np.abs(train_rmse - val_rmse)
+        score = sc + val_rmse
 
         return score
 
@@ -163,35 +172,96 @@ class XGBoostObjective(object):
         dval = xgb.DMatrix(self.X_val, label=self.y_val)
         
         param['tree_method'] = 'gpu_hist'
-        param['gpu_id'] = 3   
+        param['gpu_id'] = 6   
         
         bst = xgb.train(param, dtrain, evals=[(dval, 'validation')], callbacks=[pruning_callback], verbose_eval = False)
         train_preds = bst.predict(dtrain)
         train_rmse = np.sqrt(mean_squared_error(self.y, train_preds))
         preds = bst.predict(dval)
         val_rmse = np.sqrt(mean_squared_error(self.y_val, preds))
-        score = np.abs(train_rmse - val_rmse)
+        sc = np.abs(train_rmse - val_rmse)
+        score = sc + val_rmse
         return score
     
 
 class MLP(object):
-    def __init__(self, X, y, X_val, y_val):
-        self.X = X
-        self.y = y
-        self.X_val = X_val
-        self.y_val = y_val
+    def __init__(self, X, y, X_val, y_val, device='cuda'):
+        self.device = device
+        #choose gpu number
+        if device == 'cuda':
+            torch.cuda.set_device(6)
+        self.X = torch.tensor(X, dtype=torch.float32).to(device)
+        self.y = torch.tensor(y, dtype=torch.float32).to(device).view(-1, 1)
+        self.X_val = torch.tensor(X_val, dtype=torch.float32).to(device)
+        self.y_val = torch.tensor(y_val, dtype=torch.float32).to(device).view(-1, 1)
+
 
     def __call__(self, trial):
+        input_size = self.X.shape[1]
+        output_size = 1
+
         hidden_layer_sizes = trial.suggest_int('hidden_layer_sizes', 50, 500, step=50)
-        activation = trial.suggest_categorical('activation', ['identity', 'logistic', 'tanh', 'relu'])
-        alpha = trial.suggest_float('alpha', 1e-6, 1e-3
-                                    , log=True)
-        reg = MLPRegressor(hidden_layer_sizes=hidden_layer_sizes, activation=activation, solver='adam', alpha=alpha, random_state=42)
-        reg.fit(self.X, self.y)
-        train_preds = reg.predict(self.X)
-        train_rmse = np.sqrt(mean_squared_error(self.y, train_preds))
-        val_preds = reg.predict(self.X_val)
-        val_rmse = np.sqrt(mean_squared_error(self.y_val, val_preds))
-        score = np.abs(train_rmse - val_rmse)
+        activation_name = trial.suggest_categorical('activation', ['relu', 'tanh', 'logistic'])
+        learning_rate = trial.suggest_float('learning_rate', 1e-5, 1e-2, log=True)
+        alpha = trial.suggest_float('alpha', 1e-6, 1e-3, log=True)
+
+        if activation_name == 'relu':
+            activation = nn.ReLU()
+        elif activation_name == 'tanh':
+            activation = nn.Tanh()
+        elif activation_name == 'logistic':
+            activation = nn.Sigmoid()
+        else:
+            activation = nn.Identity()
+
+        class MLP_m(nn.Module):
+            def __init__(self, input_size, hidden_layer_sizes, output_size, activation):
+                super(MLP_m, self).__init__()
+                self.model = nn.Sequential(
+                    nn.Linear(input_size, hidden_layer_sizes),
+                    activation,
+                    nn.Linear(hidden_layer_sizes, output_size)
+                )
+
+            def forward(self, x):
+                return self.model(x)
+
+        model = MLP_m(input_size, hidden_layer_sizes, output_size, activation).to(self.device)
+        criterion = nn.MSELoss()
+        optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=alpha)
+
+        num_epochs = 1000
+        early_stopping_patience = 10
+        best_val_loss = float('inf')
+        epochs_no_improve = 0
+
+        for epoch in range(num_epochs):
+            model.train()
+            optimizer.zero_grad()
+            outputs = model(self.X)
+            loss = criterion(outputs, self.y)
+            loss.backward()
+            optimizer.step()
+
+            model.eval()
+            val_outputs = model(self.X_val)
+            val_loss = criterion(val_outputs, self.y_val).item()
+
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                epochs_no_improve = 0
+            else:
+                epochs_no_improve += 1
+
+            if epochs_no_improve >= early_stopping_patience:
+                break
+
+        train_preds = model(self.X).detach().cpu().numpy()
+        train_rmse = np.sqrt(mean_squared_error(self.y.cpu().numpy(), train_preds))
+        val_preds = model(self.X_val).detach().cpu().numpy()
+        val_rmse = np.sqrt(mean_squared_error(self.y_val.cpu().numpy(), val_preds))
+
+        sc = np.abs(train_rmse - val_rmse)
+        score = sc + val_rmse 
         return score
         
