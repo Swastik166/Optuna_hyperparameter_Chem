@@ -39,7 +39,7 @@ def main(args, pred_path, metrics_path):
         for sheet_name in xls.sheet_names:
 
             print('\n', '='*50)
-            print('='*50, '\n')
+            print('\n', '='*50, '\n')
             print(f'Starting Hyperparameter Tuning, Training, and Evaluation for, {basename},\n {sheet_name}, ...')
                         
             df = utils.load_data(file, sheet_name)
@@ -53,6 +53,7 @@ def main(args, pred_path, metrics_path):
                 
                 print(f'Time taken for {model_name}: {time.time()-start:.2f} seconds')
                 print('-'*50)
+                print('\n')
                 
                 clf = training.train_model(model_name, best_params, X_train, y_train)
                 metrics, predictions = evaluation.evaluate_model(df, clf, X_train, y_train, X_test, y_test, args.val_idx,sheet_name)
@@ -77,7 +78,7 @@ def main(args, pred_path, metrics_path):
                 training.save_model(clf, model_dir)
                             
 
-                evaluation.save_results(metrics, predictions, base_metrics_path, pred_dir)
+                evaluation.save_results(metrics, predictions, base_metrics_path, pred_dir)                
 
 
 

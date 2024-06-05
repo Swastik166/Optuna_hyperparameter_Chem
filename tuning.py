@@ -11,7 +11,7 @@ def tune_model(model_name, X, y, X_val, y_val):
     
     print('-'*50)
     print(f'Tuning {model_name}...')
-    print('-'*50)
+    print('-'*50, '\n')
     
     if model_name == 'RandomForest':
         objective = RandomForestObjective(X, y, X_val, y_val)
