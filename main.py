@@ -11,6 +11,7 @@ import utils
 import pandas as pd
 from openpyxl import Workbook
 import time
+import analyze_metrics
 
 
 def create_directories(base_path, subdirs):
@@ -78,7 +79,17 @@ def main(args, pred_path, metrics_path):
                 training.save_model(clf, model_dir)
                             
 
-                evaluation.save_results(metrics, predictions, base_metrics_path, pred_dir)                
+                evaluation.save_results(metrics, predictions, base_metrics_path, pred_dir)
+            print(f'Finished Hyperparameter Tuning, Training, and Evaluation for, {basename},\n {sheet_name}, ...')
+            print('\n', '='*50)
+            print('Analysis of Metrics Started...')
+            analyze_metrics.generate_plots(metrics_path, basename)
+            
+        analyze_metrics.generate_mean_rmse_plot(metrics_path)
+        print('Analysis of Metrics Completed...')
+        print('\n', '='*50)
+        print('\n', '='*50, '\n')
+        
 
 
 
