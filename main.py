@@ -12,7 +12,7 @@ import pandas as pd
 from openpyxl import Workbook
 import time
 import analyze_metrics
-
+import pred_analysis
 
 def create_directories(base_path, subdirs):
     for subdir in subdirs:
@@ -89,6 +89,9 @@ def main(args, pred_path, metrics_path):
         print('Analysis of Metrics Completed...')
         print('\n', '='*50)
         print('\n', '='*50, '\n')
+        
+    print('Final Analysis of Predictions Started...')
+    pred_analysis.generate_plots(pred_path)
         
 
 
