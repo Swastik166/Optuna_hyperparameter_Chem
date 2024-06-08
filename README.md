@@ -22,18 +22,17 @@ python main.py --input_folder '/path/to/input/folder'
                --models 'RandomForest' 'SVR' 
 ```
 
-## Repository Structure
+## Input Files
 
-- `main.py`: The main script that orchestrates the entire pipeline.
-- `models.py`: Defines the regression models that can be used in the pipeline.
-- `objectives.py`: Defines the objective functions for hyperparameter tuning.
-- `evaluation.py`: Contains functions for evaluating the models.
-- `training.py`: Contains functions for training the models.
-- `tuning.py`: Contains functions for hyperparameter tuning.
-- `utils.py`: Contains utility functions for loading data and splitting it into training, validation, and test sets.
-- `analyze_metrics.py`: Contains functions for analyzing the performance metrics of the models.
-- `prediction_analysis.py`: Generates regression plots for the actual vs predicted values for each model and each sheet in the input data.
-- `requirements.txt`: Lists the required Python libraries for running the pipeline.
+The pipeline expects input files in Excel format (`.xlsx`). Each input file should contain multiple sheets, with each sheet representing a different dataset. The first three columns of each sheet should contain the following information:
+
+- `Sl. No.`: The index of the data point.
+- `SMILES`: SMILES
+- `Target`: The target could be anything ex, yield, reaction barrier
+
+The remaining columns should contain the fingerprint or any other feature
+
+
 
 
 ## Saved Files and Structure
@@ -61,6 +60,21 @@ The pipeline saves the following files and directories:
         - `predictions.csv`: A CSV file containing the predicted values for the model on the dataset.
   - `plots`: A directory containing the regression plots for the actual vs predicted values for each model and each sheet in the input data.
     - `<dataset_name>_<sheet_name>.png`: A regression plot for the model and the sheet.
+
+## Repository Structure
+
+- `main.py`: The main script that orchestrates the entire pipeline.
+- `models.py`: Defines the regression models that can be used in the pipeline.
+- `objectives.py`: Defines the objective functions for hyperparameter tuning.
+- `evaluation.py`: Contains functions for evaluating the models.
+- `training.py`: Contains functions for training the models.
+- `tuning.py`: Contains functions for hyperparameter tuning.
+- `utils.py`: Contains utility functions for loading data and splitting it into training, validation, and test sets.
+- `analyze_metrics.py`: Contains functions for analyzing the performance metrics of the models.
+- `prediction_analysis.py`: Generates regression plots for the actual vs predicted values for each model and each sheet in the input data.
+- `requirements.txt`: Lists the required Python libraries for running the pipeline.
+
+
 
 
 Contributions are welcome! If you find any issues or have suggestions for improvements, please open an issue or submit a pull request.
